@@ -156,8 +156,9 @@ kbd { font: 600 10.5px/1 var(--mono); padding: 3px 5px; border: 1px solid curren
       <button type="button" id="zin" class="sq" aria-label="Zoom in">+</button>
       <button type="button" id="zout" class="sq" aria-label="Zoom out">−</button>
       <button type="button" id="loop" aria-pressed="false">Auto loop</button>
+      <button type="button" id="snd" aria-pressed="true">Sound</button>
     </div>
-    <p class="hint">WASD / arrows move · SHIFT run · SPACE jump · Q ultimate · drag to orbit · wheel zoom · T slow-mo · P pause · 1–4 palettes</p>
+    <p class="hint">WASD / arrows move · SHIFT run · SPACE jump · Q ultimate · drag to orbit · wheel zoom · T slow-mo · M sound · P pause · 1–4 palettes</p>
   </footer>
 </div>
 
@@ -905,7 +906,7 @@ function strike(target, col, delay) {
     const b = boltPool.find((x) => x.t < 0) || boltPool[0];
     jagged(target.clone().add(new THREE.Vector3(rand(-6, 6), 70, rand(-6, 6))), target, 38, 1.4, b.pts);
     b.t = 0; b.life = 0.28; b.col.copy(col);
-    flashGround(target, col, 3.5);
+    flashGround(target, col, 3.5); SFX.thunder();
     for (let i = 0; i < 80 * Q; i++) { randUnit(_v); _v.y = Math.abs(_v.y) + 0.3; _v.multiplyScalar(rand(6, 18)); sparks.emit(target, _v, rand(0.3, 0.7), _c.copy(P.core).lerp(col, 0.4), 0.035); }
     trauma = Math.min(1.25, trauma + 0.18);
   }, delay);
@@ -917,7 +918,7 @@ function flashGround(pos, col, size) {
 }
 function pulse(C, s, col, delay) {   // secondary detonations
   tween(0.01, () => {}, () => {
-    flashGround(C.clone().setY(0.8), P.core, 7 * s);
+    flashGround(C.clone().setY(0.8), P.core, 7 * s); SFX.boom(s);
     const m = vfxMat(RING_F, { uA: { value: col.clone() }, uB: { value: P.b.clone() }, uOpacity: { value: 1 }, uSoft: { value: 0.07 }, uTime: { value: 0 } }, THREE.DoubleSide);
     const ring = new THREE.Mesh(ringGeo, m); ring.position.copy(C).setY(0.15); ring.rotation.x = -Math.PI / 2;
     const rm = addTemp(ring, [m]);
@@ -964,6 +965,7 @@ function skyFlash(col) {
 }
 let bulletT = 0;
 function megaLayers(C, pa, pb, pc, pk) {
+  SFX.boom(1.4); SFX.crystal();
   bulletT = reduceMotion ? 0 : 0.9;
   spikes(C, pa, pc);
   tornado(C, pa, pc);
@@ -1009,6 +1011,54 @@ function updateCharge(t, active, dt, wall) {   // vortex rings + crackling arcs 
 }
 
 
+
+/* =================================================================== SOUND (procedural Web Audio, no files needed) */
+const SFX = (() => {
+  let ctx = null, master = null, nb = null, enabled = true;
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 8; comp.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = enabled ? 0.85 : 0; master.connect(comp);
+    nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const hum = ctx.createOscillator(), hg = ctx.createGain(); hum.type = 'sine'; hum.frequency.value = 55; hg.gain.value = 0.025; hum.connect(hg).connect(master); hum.start();
+  }
+  const ok = () => ctx && enabled && ctx.state === 'running';
+  function env(g, t, peak, attack, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+  function noise(t, dur, type, f0, f1, q, peak, attack) {
+    const s = ctx.createBufferSource(); s.buffer = nb; s.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    const g = ctx.createGain(); env(g, t, peak, attack || 0.005, dur);
+    s.connect(f).connect(g).connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  }
+  function tone(t, dur, type, f0, f1, peak, attack) {
+    const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    const g = ctx.createGain(); env(g, t, peak, attack || 0.005, dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+  }
+  return {
+    init,
+    get enabled() { return enabled; },
+    setEnabled(v) { enabled = v; if (master) master.gain.value = v ? 0.85 : 0; },
+    step(k) { if (!ok()) return; const t = ctx.currentTime; noise(t, 0.09, 'lowpass', 700 + 500 * k, 150, 1, 0.07 + 0.06 * k); },
+    jump() { if (!ok()) return; const t = ctx.currentTime; noise(t, 0.35, 'bandpass', 500, 2600, 1.4, 0.22, 0.03); tone(t, 0.22, 'sine', 240, 560, 0.08); },
+    land(s) { if (!ok()) return; const t = ctx.currentTime; tone(t, 0.3, 'sine', 120, 40, 0.45 * s); noise(t, 0.22, 'lowpass', 1400, 120, 0.8, 0.25 * s); },
+    charge(dur) { if (!ok()) return; const t = ctx.currentTime;
+      noise(t, dur, 'bandpass', 180, 5200, 5, 0.32, dur * 0.85); tone(t, dur, 'sawtooth', 70, 880, 0.07, dur * 0.9); tone(t, dur, 'sine', 140, 1760, 0.09, dur * 0.9); },
+    whoosh(k) { if (!ok()) return; const t = ctx.currentTime, s = k || 1; noise(t, 0.45 * s, 'bandpass', 300, 3200, 2, 0.35, 0.06); },
+    boom(s) { if (!ok()) return; const t = ctx.currentTime;
+      tone(t, 0.4 + 1.6 * s, 'sine', 95, 26, 0.9 * Math.min(1.2, s), 0.003);
+      tone(t, 0.18, 'square', 200, 40, 0.22 * s);
+      noise(t, 0.3 + 1.3 * s, 'lowpass', 6000, 70, 0.7, 0.75 * Math.min(1.2, s), 0.002);
+      noise(t + 0.04, 0.9 * s, 'highpass', 3500, 1200, 0.7, 0.14 * s, 0.01); },
+    thunder() { if (!ok()) return; const t = ctx.currentTime; noise(t, 0.22, 'highpass', 7000, 2500, 0.8, 0.45, 0.001); noise(t + 0.03, 1.2, 'lowpass', 900, 55, 0.6, 0.4, 0.02); },
+    crystal() { if (!ok()) return; const t = ctx.currentTime;
+      for (let k = 0; k < 9; k++) { const f = 900 + Math.random() * 2400, d = 0.12 + k * 0.07 + Math.random() * 0.05; tone(t + d, 0.7, 'triangle', f, f * 0.985, 0.06); } },
+  };
+})();
+function toggleSound() { SFX.init(); SFX.setEnabled(!SFX.enabled); const b = $('snd'); if (b) b.setAttribute('aria-pressed', String(SFX.enabled)); }
+window.addEventListener('pointerdown', () => SFX.init(), { capture: true });
+
 /* =================================================================== PLAYER CONTROLLER (WASD / arrows, Shift run, Space jump, Q ultimate) */
 const keys = new Set();
 const touchMove = { x: 0, y: 0 };
@@ -1043,18 +1093,19 @@ function updatePlayer(dt) {
   if (!player.grounded) {
     player.vy -= GRAV * dt; player.y += player.vy * dt; player.air += dt;
     if (player.y <= 0) {
-      player.y = 0; player.grounded = true; player.land = Math.min(1, 0.4 + player.air * 0.8); player.air = 0;
+      player.y = 0; player.grounded = true; player.land = Math.min(1, 0.4 + player.air * 0.8); player.air = 0; SFX.land(player.land);
       for (let i = 0; i < 26 * Q; i++) { const a = rand(0, 6.283); _w.set(player.pos.x + Math.cos(a) * 0.8, 0.15, player.pos.z + Math.sin(a) * 0.8); _v.set(Math.cos(a) * rand(3, 6), rand(0.3, 1.2), Math.sin(a) * rand(3, 6));
         smoke.emit(_w, _v, rand(0.5, 0.9), 0.6, 2.2, _c.setRGB(0.3, 0.27, 0.45), _c, 0.35, 3, 0, 0); }
     }
   }
   player.speed = Math.hypot(player.vel.x, player.vel.z);
-  player.ph += dt * (player.speed * 0.95);
+  const wasUp = Math.sin(player.ph) > 0; player.ph += dt * (player.speed * 0.95);
+  if (player.grounded && player.speed > 1.5 && (Math.sin(player.ph) > 0) !== wasUp) SFX.step(Math.min(1, player.speed / RUN));
   player.land = Math.max(0, player.land - dt * 4);
 }
 function tryJump() {
   if (!player.grounded || locked()) return;
-  player.vy = JUMP_V; player.grounded = false;
+  player.vy = JUMP_V; player.grounded = false; SFX.jump();
   for (let i = 0; i < 14 * Q; i++) { randUnit(_v); _v.y = Math.abs(_v.y); _v.multiplyScalar(rand(1, 3)); glow.emit(_w.copy(player.pos).setY(0.2), _v, rand(0.3, 0.6), 0.18, 0, P.a, P.c, 0.9, 2, 0, F_FLICKER); }
 }
 function locoPose(out) {
@@ -1084,7 +1135,7 @@ function fireUltimate() {
   if (seq.active && seq.t < T_IMPACT) return;
   if (!player.grounded) return;
   seq.active = true; seq.t = 0; seq.fired = false;
-  player.vel.set(0, 0, 0);
+  player.vel.set(0, 0, 0); SFX.charge(T_IMPACT / Math.max(0.05, timeScale));
   runeGrp.position.set(player.pos.x, 0, player.pos.z); rune.target = 0.95; rune.boost = -1; rune.flare = 0;
 }
 function phaseName() {
@@ -1096,7 +1147,9 @@ const _hand = new THREE.Vector3(), _hip = new THREE.Vector3();
 let gatherAcc = 0, auraAcc = 0;
 function updateSequence(dt, wall) {
   if (seq.active) {
-    seq.t += dt;
+    const tPrev = seq.t; seq.t += dt;
+    if (tPrev < 0.5 && seq.t >= 0.5) SFX.whoosh();
+    if (tPrev < 1.3 && seq.t >= 1.3) SFX.whoosh(1.4);
     if (!seq.fired && seq.t >= T_IMPACT) {
       seq.t = T_IMPACT; seq.fired = true;
       applyPose(samplePose(T_IMPACT + 0.05, curPose), rootMotion(T_IMPACT), wall); rig.root.updateMatrixWorld(true);
@@ -1187,14 +1240,16 @@ const KEYMAP = { 'ש': 'a', 'ג': 'd', 'ד': 's', "'": 'w', '/': 'q' };   // Heb
 window.addEventListener('keyup', (e) => { const k = KEYMAP[e.key] || e.key.toLowerCase(); keys.delete(k); if (e.code === 'KeyW') keys.delete('w'); if (e.code === 'KeyA') keys.delete('a'); if (e.code === 'KeyS') keys.delete('s'); if (e.code === 'KeyD') keys.delete('d'); });
 window.addEventListener('blur', () => keys.clear());
 window.addEventListener('keydown', (e) => {
+  SFX.init();
   if (e.metaKey || e.ctrlKey) return;
   let k = e.key.toLowerCase();
-  const byCode = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', KeyQ: 'q', KeyT: 't', KeyP: 'p' }[e.code];
+  const byCode = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', KeyQ: 'q', KeyT: 't', KeyP: 'p', KeyM: 'm' }[e.code];
   if (byCode) k = byCode; else if (KEYMAP[e.key]) k = KEYMAP[e.key];
   if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { keys.add(k); if (k.startsWith('arrow')) e.preventDefault(); return; }
   if (e.repeat) return;
   if (k === ' ') { e.preventDefault(); tryJump(); }
   else if (k === 'q' || k === 'f') { if (paused) setPaused(false); fireUltimate(); }
+  else if (k === 'm') toggleSound();
   else if (k === 't') setTimeScale(timeScale === 1 ? 0.25 : timeScale === 0.25 ? 0.05 : 1);
   else if (k === 'p') setPaused(!paused);
   else if (k === '.') { setPaused(true); stepOnce = true; }
@@ -1211,6 +1266,8 @@ window.addEventListener('keydown', (e) => {
   $('tjump').addEventListener('pointerdown', (e) => { e.preventDefault(); tryJump(); });
   $('tult').addEventListener('pointerdown', (e) => { e.preventDefault(); fireUltimate(); });
 })();
+
+$('snd').addEventListener('click', toggleSound);
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
