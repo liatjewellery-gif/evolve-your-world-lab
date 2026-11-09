@@ -186,7 +186,7 @@ const P = { core: new THREE.Color(), a: new THREE.Color(), b: new THREE.Color(),
 const coarse = matchMedia('(pointer: coarse)').matches;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const Q = coarse ? 0.55 : 1;              // particle budget multiplier
-const T_IMPACT = 1.42, SEQ_END = 3.3;
+const T_IMPACT = 2.95, SEQ_END = 4.8;
 
 /* =================================================================== MATH / EASING */
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -595,11 +595,14 @@ const POSE = {
   impact: pose({ crouch: 0.95, spine: 0.75, head: -0.5, sLx: 1.1, sLz: 1.0, eL: -0.25, sRx: -0.75, sRz: 0.1, eR: 0, sx: 1.2, sy: 0.8 }),
 };
 POSE.hold = Object.assign({}, POSE.impact, { crouch: 0.85, spine: 0.6, head: -0.25, sx: 1.03, sy: 0.97 });
+POSE.focus = pose({ crouch: 0.45, spine: 0.3, head: -0.2, sLx: 0.4, sLz: 0.6, eL: -0.6, sRx: 0.4, sRz: 0.6, eR: -0.6, sx: 1.06, sy: 0.92 });
+POSE.float = pose({ crouch: 0.05, spine: -0.05, head: -0.2, sLx: -0.35, sLz: 1.0, eL: -0.35, sRx: -0.35, sRz: 1.0, eR: -0.35, hLx: -0.25, hLz: 0.1, kL: 0.55, hRx: 0.1, hRz: 0.1, kR: 0.35, ik: 0 });
+POSE.raise = pose({ crouch: 0.05, spine: -0.15, head: -0.45, sLx: -0.4, sLz: 1.1, eL: -0.5, sRx: -3.05, sRz: 0.1, eR: -0.05, hLx: -0.25, hLz: 0.1, kL: 0.55, hRx: 0.1, hRz: 0.1, kR: 0.35, ik: 0 });
 const KEYS = [
-  { t: 0, p: POSE.idle }, { t: 0.42, p: POSE.antic, e: E.inOutCubic }, { t: 0.56, p: POSE.launch, e: E.outQuad },
-  { t: 0.78, p: POSE.tuck, e: E.outCubic }, { t: 1.02, p: POSE.tuck, e: E.linear }, { t: 1.16, p: POSE.apex, e: E.outBack },
-  { t: 1.30, p: POSE.apex, e: E.linear }, { t: T_IMPACT, p: POSE.dive, e: E.inCubic }, { t: T_IMPACT + 0.05, p: POSE.impact, e: E.outExpo },
-  { t: 2.5, p: POSE.hold, e: E.outSine }, { t: 3.2, p: POSE.idle, e: E.inOutCubic },
+  { t: 0, p: POSE.idle }, { t: 0.35, p: POSE.focus, e: E.inOutCubic }, { t: 0.9, p: POSE.float, e: E.outCubic },
+  { t: 1.6, p: POSE.float, e: E.linear }, { t: 1.85, p: POSE.raise, e: E.outBack }, { t: 2.55, p: POSE.raise, e: E.linear },
+  { t: T_IMPACT, p: POSE.dive, e: E.inCubic }, { t: T_IMPACT + 0.05, p: POSE.impact, e: E.outExpo },
+  { t: 4.0, p: POSE.hold, e: E.outSine }, { t: 4.7, p: POSE.idle, e: E.inOutCubic },
 ];
 const curPose = Object.assign({}, BASE);
 function samplePose(t, out) {
@@ -611,12 +614,12 @@ function samplePose(t, out) {
 }
 function rootMotion(t) { // custom arcs: jump, hang time, accelerating dive
   let y = 0, z = 0, flip = 0, pitch = 0;
-  if (t > 0.5 && t < T_IMPACT) {
-    if (t < 1.16) { const u = seg(t, 0.5, 1.16); y = 7.4 * E.outCubic(u); z = -1.6 * E.outSine(u); }
-    else if (t < 1.3) { y = 7.4 + 0.35 * E.outSine(seg(t, 1.16, 1.3)); z = -1.6; }
-    else { const u = seg(t, 1.3, T_IMPACT); y = 7.75 * (1 - E.inQuart(u)); z = -1.6 * (1 - E.inCubic(u)); pitch = 0.9 * E.inCubic(u); }
+  const H = 4.6;
+  if (t > 0.3 && t < T_IMPACT) {
+    const hover = 0.18 * Math.sin(t * 3.2) * seg(t, 0.9, 1.4);
+    if (t < 2.6) y = H * E.inOutSine(seg(t, 0.3, 1.6)) + hover;
+    else { const u = seg(t, 2.6, T_IMPACT); y = (H + hover) * (1 - E.inQuart(u)); pitch = 0.9 * E.inCubic(u); }
   }
-  if (t > 0.56 && t < 1.12) flip = -Math.PI * 2 * E.inOutCubic(seg(t, 0.56, 1.12));
   if (t >= T_IMPACT && t < T_IMPACT + 0.1) pitch = 0.9 * (1 - E.outCubic(seg(t, T_IMPACT, T_IMPACT + 0.1)));
   return { y, z, flip, pitch };
 }
@@ -993,8 +996,8 @@ const vortex = [0, 1, 2].map((i) => {
 function updateCharge(t, active, dt, wall) {   // vortex rings + crackling arcs while the ultimate charges
   const on = active && t < T_IMPACT;
   for (const v of vortex) {
-    v.r.visible = on;
-    if (!on) continue;
+    v.r.visible = false;
+    if (!on || true) continue;
     const k = seg(t, 0, T_IMPACT), rad = (5.5 - v.i * 1.2) * (1 - 0.75 * E.inCubic(k)) + 0.6;
     v.r.position.set(rig.root.position.x, rig.root.position.y + 1.2 + v.i * 1.1 + Math.sin(wall * 3 + v.i) * 0.3, rig.root.position.z);
     v.r.rotation.set(Math.PI / 2 + Math.sin(wall * 2 + v.i) * 0.35, wall * (1.5 + v.i), 0);
@@ -1059,13 +1062,78 @@ const SFX = (() => {
 function toggleSound() { SFX.init(); SFX.setEnabled(!SFX.enabled); const b = $('snd'); if (b) b.setAttribute('aria-pressed', String(SFX.enabled)); }
 window.addEventListener('pointerdown', () => SFX.init(), { capture: true });
 
+
+/* golden clock circle (magic seal) that carries the player into the air */
+const ZAPS = [1.95, 2.07, 2.18, 2.3, 2.42];
+function zapHand() {
+  const h = new THREE.Vector3(); rig.R.hand.getWorldPosition(h);
+  const b = boltPool.find((x) => x.t < 0) || boltPool[0];
+  jagged(h.clone().add(new THREE.Vector3(rand(-9, 9), 48, rand(-9, 9))), h, 34, 1.3, b.pts); b.t = 0; b.life = 0.24; b.col.copy(Math.random() < 0.5 ? P.a : P.c);
+  flashGround(h, P.core, 1.8);
+  for (let i = 0; i < 60 * Q; i++) { randUnit(_v).multiplyScalar(rand(4, 12)); sparks.emit(h, _v, rand(0.2, 0.5), _c.copy(P.core).lerp(P.a, 0.5), 0.035); }
+  SFX.thunder(); trauma = Math.min(1.25, trauma + 0.14); postFlash = Math.max(postFlash, 0.28);
+}
+function clockTex(kind) {
+  return canvasTex(1024, (g, S) => {
+    const c = S / 2; g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineCap = 'round'; g.lineJoin = 'round';
+    if (kind === 0) {               // outer dial: double rim, 60 ticks, 12 hour plates with glyphs
+      g.lineWidth = 7; g.beginPath(); g.arc(c, c, 495, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 3; g.beginPath(); g.arc(c, c, 470, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.arc(c, c, 360, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2, l = i % 5 ? 14 : 34; g.lineWidth = i % 5 ? 3 : 6;
+        g.beginPath(); g.moveTo(c + Math.cos(a) * 470, c + Math.sin(a) * 470); g.lineTo(c + Math.cos(a) * (470 - l), c + Math.sin(a) * (470 - l)); g.stroke(); }
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 - Math.PI / 2, x = c + Math.cos(a) * 400, y = c + Math.sin(a) * 400;
+        g.save(); g.translate(x, y); g.rotate(a + Math.PI / 2); g.lineWidth = 3; g.strokeRect(-26, -22, 52, 44); g.restore(); g.lineWidth = 4; runeGlyph(g, x, y, 14, i * 11 + 7); }
+    } else if (kind === 1) {        // middle: two squares (8-point star), circle, small orbit circles
+      g.lineWidth = 5; for (const off of [0, Math.PI / 4]) { g.beginPath(); for (let k = 0; k <= 4; k++) { const a = off + k / 4 * Math.PI * 2; g.lineTo(c + Math.cos(a) * 330, c + Math.sin(a) * 330); } g.stroke(); }
+      g.lineWidth = 3; g.beginPath(); g.arc(c, c, 233, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.arc(c, c, 330, 0, Math.PI * 2); g.stroke();
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.beginPath(); g.arc(c + Math.cos(a) * 282, c + Math.sin(a) * 282, 22, 0, Math.PI * 2); g.stroke(); }
+    } else {                        // inner: clock hands + core rings
+      g.lineWidth = 4; g.beginPath(); g.arc(c, c, 150, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.arc(c, c, 60, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 9; g.beginPath(); g.moveTo(c, c); g.lineTo(c, c - 210); g.stroke();
+      g.lineWidth = 6; g.beginPath(); g.moveTo(c, c); g.lineTo(c + 140, c + 40); g.stroke();
+      for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; g.lineWidth = 2; g.beginPath(); g.moveTo(c + Math.cos(a) * 160, c + Math.sin(a) * 160); g.lineTo(c + Math.cos(a) * 215, c + Math.sin(a) * 215); g.stroke(); }
+    }
+  });
+}
+const GOLD = new THREE.Color(0xffc23a); const GOLD_HOT = new THREE.Color(0xffc23a).multiplyScalar(2.2);
+const mandala = [0, 1, 2].map((k) => {
+  const m = new THREE.MeshBasicMaterial({ map: clockTex(k), color: GOLD_HOT, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); mesh.rotation.x = -Math.PI / 2; mesh.visible = false; scene.add(mesh);
+  return { mesh, m, k };
+});
+const mandalaLight = new THREE.PointLight(0xffc23a, 0, 14, 2); scene.add(mandalaLight);
+let goldAcc = 0;
+function updateMandala(t, active, dt, wall) {
+  const appear = active ? E.outBack(seg(t, 0.15, 0.6)) : 0;
+  const vanish = active ? 1 - seg(t, T_IMPACT - 0.05, T_IMPACT + 0.35) : 0;
+  const k = Math.max(0, appear * vanish), flare = active ? Math.max(0, 1 - Math.abs(t - T_IMPACT) / 0.12) : 0;
+  const base = rig.root.position;
+  for (const L of mandala) {
+    L.mesh.visible = k > 0.002;
+    if (!L.mesh.visible) continue;
+    const size = (L.k === 0 ? 10.5 : L.k === 1 ? 7.2 : 4.2) * k * (1 + 0.6 * flare);
+    L.mesh.scale.set(size, size, 1);
+    L.mesh.position.set(base.x, base.y + 0.06 + L.k * 0.02, base.z);
+    const tick = Math.floor(t * 2) + E.outBack(Math.min(1, (t * 2 % 1) * 3));   // clock-like ticking for the outer dial
+    L.mesh.rotation.z = L.k === 0 ? -tick * Math.PI / 30 : L.k === 1 ? wall * 0.8 : -wall * 2.2;
+    L.m.opacity = Math.min(1, k * (L.k === 1 ? 0.85 : 1) * (0.85 + 0.15 * Math.sin(wall * 8 + L.k)) + flare);
+  }
+  mandalaLight.position.set(base.x, base.y + 0.5, base.z); mandalaLight.intensity = 3 * k;
+  if (dt > 0 && k > 0.3) {            // golden motes drifting up from the seal
+    goldAcc += dt * 90 * Q;
+    while (goldAcc >= 1) { goldAcc--; const a = rand(0, 6.283), r = rand(1, 4) * k;
+      _w.set(base.x + Math.cos(a) * r, base.y + 0.1, base.z + Math.sin(a) * r); _v.set(0, rand(1.5, 4), 0);
+      glow.emit(_w, _v, rand(0.5, 1), rand(0.08, 0.16), 0, WHITE, GOLD, 0.9, 0.5, 0, F_FLICKER); }
+  }
+}
+
 /* =================================================================== PLAYER CONTROLLER (WASD / arrows, Shift run, Space jump, Q ultimate) */
 const keys = new Set();
 const touchMove = { x: 0, y: 0 };
 const player = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), yaw: 0, y: 0, vy: 0, grounded: true, speed: 0, ph: 0, land: 0, air: 0 };
 const WALK = 9, RUN = 17, JUMP_V = 16, GRAV = 44, ARENA_R = 40;
 const _fwd = new THREE.Vector3(), _rgt = new THREE.Vector3(), _dir = new THREE.Vector3();
-function locked() { return seq.active && seq.t < 2.7; }
+function locked() { return seq.active && seq.t < T_IMPACT + 1.1; }
 function updatePlayer(dt) {
   if (dt <= 0) return;
   let ix = touchMove.x, iz = touchMove.y;
@@ -1136,20 +1204,21 @@ function fireUltimate() {
   if (!player.grounded) return;
   seq.active = true; seq.t = 0; seq.fired = false;
   player.vel.set(0, 0, 0); SFX.charge(T_IMPACT / Math.max(0.05, timeScale));
-  runeGrp.position.set(player.pos.x, 0, player.pos.z); rune.target = 0.95; rune.boost = -1; rune.flare = 0;
+  runeGrp.position.set(player.pos.x, 0, player.pos.z); rune.target = 0.4; rune.boost = -1; rune.flare = 0;
 }
 function phaseName() {
   if (!seq.active) return !player.grounded ? 'JUMP' : player.speed > WALK + 1 ? 'RUN' : player.speed > 0.5 ? 'WALK' : 'READY';
   const t = seq.t;
-  return t < 0.42 ? 'ANTICIPATION' : t < 0.56 ? 'LAUNCH' : t < 1.12 ? 'BACKFLIP' : t < 1.3 ? 'CHARGE' : t < T_IMPACT ? 'DIVE' : t < 2.5 ? 'IMPACT' : 'RECOVERY';
+  return t < 0.35 ? 'FOCUS' : t < 1.6 ? 'LEVITATE' : t < 1.9 ? 'RAISE HAND' : t < 2.6 ? 'LIGHTNING' : t < T_IMPACT ? 'SLAM' : t < 4.0 ? 'IMPACT' : 'RECOVERY';
 }
 const _hand = new THREE.Vector3(), _hip = new THREE.Vector3();
 let gatherAcc = 0, auraAcc = 0;
 function updateSequence(dt, wall) {
   if (seq.active) {
     const tPrev = seq.t; seq.t += dt;
-    if (tPrev < 0.5 && seq.t >= 0.5) SFX.whoosh();
-    if (tPrev < 1.3 && seq.t >= 1.3) SFX.whoosh(1.4);
+    if (tPrev < 0.35 && seq.t >= 0.35) SFX.whoosh(2.2);
+    for (const z of ZAPS) if (tPrev < z && seq.t >= z) zapHand();
+    if (tPrev < 2.6 && seq.t >= 2.6) SFX.whoosh(1.2);
     if (!seq.fired && seq.t >= T_IMPACT) {
       seq.t = T_IMPACT; seq.fired = true;
       applyPose(samplePose(T_IMPACT + 0.05, curPose), rootMotion(T_IMPACT), wall); rig.root.updateMatrixWorld(true);
@@ -1169,7 +1238,7 @@ function updateSequence(dt, wall) {
 
   // anticipation: energy rises from the ground into the body
   rig.hips.getWorldPosition(_hip);
-  if (dt > 0 && seq.active && t < 0.56) {
+  if (dt > 0 && seq.active && t < 1.6) {
     auraAcc += dt * 260 * Q;
     while (auraAcc >= 1) { auraAcc--; const a = rand(0, Math.PI * 2), r = rand(0.4, 2.6);
       _w.set(rig.root.position.x + Math.cos(a) * r, 0.05, rig.root.position.z + Math.sin(a) * r); _v.set(-Math.cos(a) * r * 0.6, rand(3, 7), -Math.sin(a) * r * 0.6);
@@ -1177,8 +1246,8 @@ function updateSequence(dt, wall) {
   }
   // charge: particles spiral into the fist, orb grows
   rig.R.hand.getWorldPosition(_hand);
-  const chg = seq.active && t > 0.95 && t < T_IMPACT ? E.outCubic(seg(t, 0.95, 1.36)) : 0;
-  orb.visible = chg > 0.01; orb.position.copy(_hand); orb.scale.setScalar(0.12 + 0.5 * chg * (1 + 0.15 * Math.sin(wall * 40)));
+  const chg = seq.active && t > 1.95 && t < T_IMPACT ? E.outCubic(seg(t, 1.95, 2.5)) : 0;
+  orb.visible = chg > 0.01; orb.position.copy(_hand); orb.scale.setScalar(0.15 + 0.85 * chg * (1 + 0.15 * Math.sin(wall * 40)));
   chargeLight.position.copy(_hand); chargeLight.color.copy(P.a); chargeLight.intensity = chg * 6;
   if (dt > 0 && chg > 0) {
     gatherAcc += dt * 420 * Q;
@@ -1186,8 +1255,9 @@ function updateSequence(dt, wall) {
       _w.copy(_hand).addScaledVector(_u, r); _v.subVectors(_hand, _w).multiplyScalar(1 / 0.22).add(_u.cross(UP).multiplyScalar(3));
       glow.emit(_w, _v, 0.22, 0.1, 0.3, P.c, P.core, 1, 0, 0, 0); }
   }
-  updateTrails(dt, (seq.active && t > 0.5 && t < T_IMPACT + 0.06) || (!player.grounded && !seq.active));
+  updateTrails(dt, (seq.active && t > 2.55 && t < T_IMPACT + 0.06) || (!player.grounded && !seq.active));
   updateCharge(t, seq.active, dt, wall);
+  updateMandala(t, seq.active, dt, wall);
   shadow.position.set(rig.root.position.x, 0.025, rig.root.position.z);
   const hgt = rig.root.position.y; shadow.scale.setScalar(1 - Math.min(1, hgt / 10) * 0.6); shadow.material.opacity = 0.8 * (1 - Math.min(1, hgt / 12));
 }
@@ -1200,7 +1270,7 @@ function updateCamera(rdt, wall) {
   if (cam.auto && !cam.dragging) cam.theta += rdt * 0.07;
   cam.target.y = lerp(cam.target.y, 2.4 + rig.root.position.y * 0.55, Math.min(1, rdt * 4));
   cam.target.x = lerp(cam.target.x, rig.root.position.x, Math.min(1, rdt * 6)); cam.target.z = lerp(cam.target.z, rig.root.position.z, Math.min(1, rdt * 6));
-  cam.wide = lerp(cam.wide || 0, seq.active ? 1 : 0, Math.min(1, rdt * (seq.active ? 2.5 : 0.8)));
+  cam.wide = lerp(cam.wide || 0, seq.active ? (seq.t > T_IMPACT - 0.4 ? 1 : 0.15) : 0, Math.min(1, rdt * (seq.active ? 2.5 : 0.8)));
   const R_ = cam.r + 16 * E.inOutSine(cam.wide), sp = Math.sin(cam.phi);
   camera.position.set(cam.target.x + R_ * sp * Math.sin(cam.theta), cam.target.y + R_ * Math.cos(cam.phi) + 1.5 + 3 * cam.wide, cam.target.z + R_ * sp * Math.cos(cam.theta));
   const s = trauma * trauma * (reduceMotion ? 0.25 : 1);
