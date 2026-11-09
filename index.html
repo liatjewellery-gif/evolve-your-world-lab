@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EVOLVE YOUR WORLD Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Secular+One&display=swap">
+<style>
+:root { --bg:#06070f; --card:#0e1124; --edge:#232a4d; --fg:#eef0ff; --muted:#9aa2c8; --cyan:#6ee1ff; color-scheme:dark; }
+* { box-sizing:border-box }
+body { margin:0; min-height:100vh; background:var(--bg); color:var(--fg); font-family:"Rubik",system-ui,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:40px; }
+main { max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:28px; }
+.eyebrow { font-size:12px; letter-spacing:.16em; color:var(--cyan); direction:ltr; text-align:right; }
+h1 { margin:4px 0 0; font-family:"Secular One","Rubik",sans-serif; font-weight:400; font-size:clamp(28px,5vw,42px); text-wrap:balance; }
+p.lead { margin:8px 0 0; color:var(--muted); max-width:60ch; line-height:1.6; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+a.lab { display:flex; flex-direction:column; gap:8px; padding:18px; border-radius:16px; background:var(--card); border:1px solid var(--edge); color:inherit; text-decoration:none; transition:border-color .15s, transform .15s; }
+a.lab:hover, a.lab:focus-visible { border-color:var(--cyan); transform:translateY(-2px); outline:none; }
+.lab b { font-size:18px; } .lab span { color:var(--muted); font-size:14px; line-height:1.5; }
+.tag { align-self:flex-start; font-size:11px; padding:3px 9px; border-radius:999px; background:rgba(110,225,255,.12); color:var(--cyan); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">EVOLVE YOUR WORLD · LAB</div>
+    <h1>מעבדת התרגול של המשחק</h1>
+    <p class="lead">כאן מנסים אפקטים, יצורים ורעיונות לפני שהם נכנסים ל-Roblox. כל ניסוי נפתח בדפדפן ואפשר לשחק בו.</p>
+  </header>
+  <section class="grid" aria-label="ניסויים">
+    <a class="lab" href="labs/energy-beam/">
+      <span class="tag">VFX</span>
+      <b>מעבדת קרן אנרגיה</b>
+      <span>צריח יורה קרן זוהרת על יצורים במסוע, וכל פגיעה מעלה אותם דרגה מ-Common עד Mythic.</span>
+    </a>
+  </section>
+</main>
+</body>
+</html>
