@@ -1531,7 +1531,7 @@ function updateCamera(rdt, wall) {
    they storm around the plot, land as a lawn, and then rise floor by floor into a tower.  */
 renderer.localClippingEnabled = true;
 const BLD = { S: new THREE.Vector3(0, 0, -22), state: 'idle', t: 0, prevT: 0, rate: 1, mode: '', y0: 2.2, yaw0: 0, yawEnd: 0, tickAcc: 0, fx: 0, floorsHit: 0 };
-const BT = { BURST: 0.95, TL0: 2.2, DL: 1.1, TB0: 2.9, DB: 3.6, FIN: 6.75, END: 7.9 };
+const BT = { BURST: 0.95, TL0: 2.2, DL: 1.1, TB0: 2.9, DB: 3.6, FIN: 7.2, END: 8.4 };
 const BH = 27.2;                                     // tower height incl. spire
 const bSm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const bOutBack = (x) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -1874,8 +1874,8 @@ function footW(h) { return h < 1.05 ? 8.75 : h < 3.6 ? 6.5 : h < 14.3 ? 7.0 : h 
 [BG, LG, cubeG].forEach((g) => g.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
   ms.forEach((m) => { if (m.isMeshStandardMaterial && !m.userData.envSet) { m.envMapIntensity = Math.min(m.envMapIntensity, m.metalness > 0.6 ? 0.45 : 0.22); m.userData.envSet = true; } }); }));
 /* ---------------- the pieces: 15³ tiles of the cube */
-const NG = 15, NP = NG * NG * NG, CELL = 2.4 / NG;
-const NLAWN = Math.round(NP * 0.24);
+const NG = 20, NP = NG * NG * NG, CELL = 2.4 / NG;
+const NLAWN = Math.round(NP * 0.2);
 const pieceGeo = new THREE.BoxGeometry(1, 1, 1);
 const pGlow = new THREE.InstancedBufferAttribute(new Float32Array(NP), 1); pGlow.setUsage(THREE.DynamicDrawUsage); pieceGeo.setAttribute('aGlow', pGlow);
 const pieceM = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.45, color: 0x9a94c0, envMapIntensity: 0.3 });
@@ -1929,24 +1929,25 @@ const PD = {
     const ecol = Math.random() < 0.5 ? P.a : Math.random() < 0.6 ? new THREE.Color(1.0, 0.78, 0.36) : P.c; PD.ec.set([ecol.r, ecol.g, ecol.b], i * 3);
     if (i < NLAWN) {                                     // lawn tile
       PD.kind[i] = 0; let x, z, r; do { const aa = rand(0, 6.283); r = Math.sqrt(Math.random()) * (LAWN_R - 0.3); x = Math.cos(aa) * r; z = Math.sin(aa) * r; } while (inPlot(x, z) && Math.random() < 0.8);
-      PD.tr.set([BLD.S.x + x, 0.09, BLD.S.z + z], i * 3); _bq.setFromUnitVectors(ZAX, UP); _bq2.setFromAxisAngle(UP, rand(0, 6.28)); _bq.premultiply(_bq2);
-      PD.tq.set([_bq.x, _bq.y, _bq.z, _bq.w], i * 3 + i); PD.ts.set([0.36, 0.36, 0.08], i * 3);
+      PD.tr.set([BLD.S.x + x, 0.16, BLD.S.z + z], i * 3); _bq.setFromUnitVectors(ZAX, UP); _bq2.setFromAxisAngle(UP, rand(0, 6.28)); _bq.premultiply(_bq2);
+      PD.tq.set([_bq.x, _bq.y, _bq.z, _bq.w], i * 3 + i); { const s = rand(0.3, 0.4); PD.ts.set([s, s, s], i * 3); }
       _bc.setHSL(rand(0.24, 0.33), 0.6, rand(0.26, 0.4)); if (Math.random() < 0.06) _bc.setHex(FCOL[(Math.random() * FCOL.length) | 0]);
       PD.tc.set([_bc.r, _bc.g, _bc.b], i * 3); PD.gl[i] = 0;
       PD.tl[i] = BT.TL0 + (r / LAWN_R) * BT.DL + rand(0, 0.12);
     } else {                                             // tower tile
       PD.kind[i] = 1; const tr = pick(Math.random() * total); let u = Math.random(), v = Math.random(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
-      _bv.copy(tr.a).addScaledVector(_bw.subVectors(tr.b, tr.a), u).addScaledVector(_bx.subVectors(tr.c, tr.a), v).addScaledVector(tr.n, 0.045);
-      PD.tr.set([_bv.x, _bv.y, _bv.z], i * 3); _bq.setFromUnitVectors(ZAX, tr.n); PD.tq.set([_bq.x, _bq.y, _bq.z, _bq.w], i * 4);
-      const s = rand(0.24, 0.32); PD.ts.set([s, s, 0.07], i * 3); PD.tc.set([tr.col.r, tr.col.g, tr.col.b], i * 3); PD.gl[i] = tr.glow;
+      const s = rand(0.26, 0.36);
+      _bv.copy(tr.a).addScaledVector(_bw.subVectors(tr.b, tr.a), u).addScaledVector(_bx.subVectors(tr.c, tr.a), v).addScaledVector(tr.n, s * 0.42);
+      PD.tr.set([_bv.x, _bv.y, _bv.z], i * 3); _bq.setFromUnitVectors(ZAX, tr.n); _bq2.setFromAxisAngle(tr.n, (Math.random() * 4 | 0) * Math.PI / 2 + rand(-0.08, 0.08)); _bq.premultiply(_bq2); PD.tq.set([_bq.x, _bq.y, _bq.z, _bq.w], i * 4);
+      PD.ts.set([s, s, s], i * 3); PD.tc.set([tr.col.r, tr.col.g, tr.col.b], i * 3); PD.gl[i] = tr.glow;
       PD.tl[i] = BT.TB0 + clamp(_bv.y / BH, 0, 1) * BT.DB + rand(-0.05, 0.1);
     }
     PD.fl[i] = rand(0.5, 0.85);
   }
 })();
 // (lawn quaternions above were written at i*3+i == i*4)
-const bH = (t) => (BLD.state === 'built' ? 999 : BH * clamp((t - BT.TB0 - 0.2) / BT.DB, 0, 1) + (t >= BT.FIN ? 999 : 0));
-const lawnR = (t) => LAWN_R * clamp((t - BT.TL0 - 0.12) / BT.DL, 0, 1);
+const bH = (t) => (BLD.state === 'built' ? 999 : BH * clamp((t - BT.TB0 - 0.6) / BT.DB, 0, 1) + (t >= BT.FIN ? 999 : 0));
+const lawnR = (t) => LAWN_R * clamp((t - BT.TL0 - 0.45) / BT.DL, 0, 1);
 function stormPos(i, t, out) {
   const ang = PD.sa[i] + PD.sw[i] * t, r = PD.sr[i] * (1 + 0.12 * Math.sin(t * 2.1 + PD.sp[i])), h = PD.sh[i] + 0.7 * Math.sin(t * 1.6 + PD.sp[i] * 1.3);
   return out.set(BLD.S.x + Math.cos(ang) * r, h, BLD.S.z + Math.sin(ang) * r);
@@ -1976,8 +1977,8 @@ function pieceState(i, t) {                             // writes matrix, colour
       glow = 0.45 + u * 0.4; _bc.lerp(_bx.set(0, 0, 0), 0).lerp(_bw.set(PD.tc[i3], PD.tc[i3 + 1], PD.tc[i3 + 2]), bSm(0.5, 1, u) * 0.5);
     } else {
       const d = t - tl; _bv.copy(_pc); _bq.copy(_bq2);
-      const pop = 1 + 0.45 * Math.max(0, 1 - d / 0.14), gone = 1 - bSm(0.5, 0.85, d);
-      _bs.set(PD.ts[i3] * pop * gone, PD.ts[i3 + 1] * pop * gone, PD.ts[i3 + 2] * gone);
+      const pop = 1 + 0.35 * Math.max(0, 1 - d / 0.14), gone = 1 - bSm(PD.kind[i] ? 0.85 : 0.7, PD.kind[i] ? 1.3 : 1.1, d);
+      _bs.set(PD.ts[i3] * pop * gone, PD.ts[i3 + 1] * pop * gone, PD.ts[i3 + 2] * pop * gone);
       _bc.setRGB(PD.tc[i3], PD.tc[i3 + 1], PD.tc[i3 + 2]); glow = PD.gl[i] * 0.6 + 1.3 * Math.exp(-d * 8);
       if (gone <= 0) _bs.set(0, 0, 0);
     }
@@ -2079,16 +2080,16 @@ function updateBuild(dt, rdt, wall) {
   LG.visible = lr > 0.01; lawnU.uR.value = lr + (BLD.state === 'built' ? 1 : 0); lawnU.uEdge.value = busy && lr < LAWN_R ? 0.8 : 0; grassU.uTime.value = wall;
   if (LG.visible && (busy || !BLD.lawnDone)) {
     const tt = BLD.state === 'built' ? 99 : t;
-    for (let i = 0; i < NB; i++) { const d = bladeD[i], tg = BT.TL0 + 0.12 + (d.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.45, 0, 1), s = g > 0 ? bOutBack(g) : 0;
+    for (let i = 0; i < NB; i++) { const d = bladeD[i], tg = BT.TL0 + 0.45 + (d.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.45, 0, 1), s = g > 0 ? bOutBack(g) : 0;
       _be.set(d.tx, d.ry, 0); _bq.setFromEuler(_be); _bv.set(d.x, 0.02, d.z); _bs.set(1, d.h * s + 1e-4, 1); _bm.compose(_bv, _bq, _bs); blades.setMatrixAt(i, _bm); }
     blades.instanceMatrix.needsUpdate = true;
-    for (let i = 0; i < NF; i++) { const d = flowerD[i], tg = BT.TL0 + 0.35 + (d.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.4, 0, 1), s = g > 0 ? bOutBack(g) : 0;
+    for (let i = 0; i < NF; i++) { const d = flowerD[i], tg = BT.TL0 + 0.65 + (d.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.4, 0, 1), s = g > 0 ? bOutBack(g) : 0;
       _bm.compose(_bv.set(d.x, d.y * s, d.z), _bq.identity(), _bs.set(s, s, s)); flowers.setMatrixAt(i, _bm); }
     flowers.instanceMatrix.needsUpdate = true;
-    hedgeD.forEach((d, i) => { const tg = BT.TL0 + 0.3 + (d.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.5, 0, 1), s = (g > 0 ? bOutBack(g) : 0) * d.s;
+    hedgeD.forEach((d, i) => { const tg = BT.TL0 + 0.6 + (d.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.5, 0, 1), s = (g > 0 ? bOutBack(g) : 0) * d.s;
       _bm.compose(_bv.set(d.x, s * 0.55, d.z), _bq.identity(), _bs.set(s * 1.3, s * 0.9, s * 1.3)); hedges.setMatrixAt(i, _bm); });
     hedges.instanceMatrix.needsUpdate = true;
-    lawnItems.forEach((it) => { const tg = BT.TL0 + 0.45 + (it.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.55, 0, 1); it.obj.scale.setScalar(Math.max(1e-4, (g > 0 ? bOutBack(g) : 0) * it.s)); });
+    lawnItems.forEach((it) => { const tg = BT.TL0 + 0.75 + (it.r / LAWN_R) * BT.DL; const g = clamp((tt - tg) / 0.55, 0, 1); it.obj.scale.setScalar(Math.max(1e-4, (g > 0 ? bOutBack(g) : 0) * it.s)); });
     const cs = clamp((tt - BT.TL0 - BT.DL) / 0.4, 0, 1); curb.scale.set(1, 1, 0.55 * (cs > 0 ? bOutBack(cs) : 0) + 1e-4); curb.visible = cs > 0;
     BLD.lawnDone = BLD.state === 'built';
   }
@@ -2097,13 +2098,13 @@ function updateBuild(dt, rdt, wall) {
   const h = bH(t);
   BG.visible = BLD.state === 'built' || (busy && t > BT.TB0);
   bClip.constant = h; bClipUp.constant = -h;
-  BP.visible = busy && t > 0.25 && t < BT.FIN; bpM.opacity = BP.visible ? 0.6 * bSm(0.25, 1.2, t) * (0.75 + 0.25 * Math.sin(wall * 22)) : 0;
-  scan.visible = busy && h > 0.02 && h < BH - 0.1;
+  BP.visible = false; bpM.opacity = BP.visible ? 0.6 * bSm(0.25, 1.2, t) * (0.75 + 0.25 * Math.sin(wall * 22)) : 0;
+  scan.visible = false;
   if (scan.visible) { const w = footW(h); scan.position.y = h; scanBars.forEach((b) => { const ry = b.userData.ry; b.scale.x = w + 0.1; b.position.set(Math.sin(ry) * w / 2, 0, Math.cos(ry) * w / 2); b.rotation.y = ry + Math.PI / 2 * 0 ; b.rotation.y = ry; });
     if (fwd) for (let k = 0; k < 6 * Q; k++) { const ry = SIDES[k % 4], o = rand(-w / 2, w / 2); _bv.set(S.x + Math.sin(ry) * w / 2 + Math.cos(ry) * o, h, S.z + Math.cos(ry) * w / 2 - Math.sin(ry) * o);
       _bw.set(Math.sin(ry) * rand(1, 3), rand(-1, 2), Math.cos(ry) * rand(1, 3)); sparks.emit(_bv, _bw, rand(0.2, 0.5), _bc.copy(P.a).lerp(WHITE, 0.4).multiplyScalar(1.5), 0.03); } }
   // floors light up one after another, with a flicker
-  const tOf = (yy) => BT.TB0 + 0.2 + (yy / BH) * BT.DB;
+  const tOf = (yy) => BT.TB0 + 0.6 + (yy / BH) * BT.DB;
   floors.forEach((f, fi) => {
     const d = BLD.state === 'built' ? 9 : t - tOf(f.y1);
     const on = d <= 0 ? 0 : d < 0.4 ? (Math.sin(d * 70 + fi) > -0.2 ? 1 : 0.15) * (d / 0.4) : 1;
