@@ -1998,7 +1998,7 @@ function updateCars(dt, show) {
 }
 
 /* ---------------- the pieces: 22³ cubes from the cube, each landing on a real city surface */
-const NG = 22, NP = NG * NG * NG, CELL = 2.4 / NG;
+const NG = Q >= 1 ? 34 : 26, NP = NG * NG * NG, CELL = 2.4 / NG;
 const pieceGeo = new THREE.BoxGeometry(1, 1, 1);
 const pGlow = new THREE.InstancedBufferAttribute(new Float32Array(NP), 1); pGlow.setUsage(THREE.DynamicDrawUsage); pieceGeo.setAttribute('aGlow', pGlow);
 const pieceM = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.45, color: 0x9a94c0, envMapIntensity: 0.3 });
@@ -2014,7 +2014,7 @@ const PD = {
   c: new Float32Array(NP * 3), dir: new Float32Array(NP * 3), bd: new Float32Array(NP),
   sa: new Float32Array(NP), sw: new Float32Array(NP), sr: new Float32Array(NP), sh: new Float32Array(NP), sp: new Float32Array(NP),
   tr: new Float32Array(NP * 3), tq: new Float32Array(NP * 4), ts: new Float32Array(NP), tc: new Float32Array(NP * 3), ec: new Float32Array(NP * 3),
-  tl: new Float32Array(NP), fl: new Float32Array(NP), rx: new Float32Array(NP * 3),
+  tl: new Float32Array(NP), fl: new Float32Array(NP), rx: new Float32Array(NP * 3), z: new Uint8Array(NP),
 };
 (function initPieces() {
   const CY = 3.2, order = Array.from({ length: NP }, (_, i) => i).sort(() => Math.random() - 0.5);
@@ -2035,12 +2035,12 @@ const PD = {
     const tr = pick(Math.random() * total), A = tr.e.geo.attributes, k = tr.t * 3;
     a.fromArray(A.position.array, k * 3); b.fromArray(A.position.array, k * 3 + 3); c.fromArray(A.position.array, k * 3 + 6); nrm.subVectors(b, a).cross(_bw.subVectors(c, a)).normalize();
     let u = Math.random(), v = Math.random(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
-    const flat = nrm.y > 0.9, s = flat ? rand(0.45, 0.6) : rand(0.5, 0.75);
+    const flat = nrm.y > 0.9, s = flat ? rand(0.24, 0.32) : rand(0.2, 0.34);
     _bv.copy(a).addScaledVector(_bw.subVectors(b, a), u).addScaledVector(_bx.subVectors(c, a), v).addScaledVector(nrm, s * 0.42);
     PD.tr.set([_bv.x, _bv.y, _bv.z], i * 3); _bq.setFromUnitVectors(ZAX, nrm); _bq2.setFromAxisAngle(nrm, (Math.random() * 4 | 0) * Math.PI / 2 + rand(-0.08, 0.08)); _bq.premultiply(_bq2); PD.tq.set([_bq.x, _bq.y, _bq.z, _bq.w], i * 4);
     PD.ts[i] = s;
     const vc = A.color.array, tc = tr.e.tint; PD.tc.set([vc[k * 3] * tc.r, vc[k * 3 + 1] * tc.g, vc[k * 3 + 2] * tc.b], i * 3);
-    const t0 = A.aT0.array[k]; PD.tl[i] = Math.max(BT.BURST + 1.0, t0 + Math.max(0, _bv.y) / CRATE - 0.1 + rand(-0.05, 0.05));
+    const t0 = A.aT0.array[k]; PD.tl[i] = Math.max(BT.BURST + 1.0, t0 + Math.max(0, _bv.y) / CRATE - 0.35 + rand(-0.08, 0.08));
     PD.fl[i] = rand(0.55, 0.9);
   }
 })();
@@ -2057,10 +2057,11 @@ function freePos(i, t, out) {
 function pieceState(i, t) {
   const i3 = i * 3, tl = PD.tl[i], fl = PD.fl[i], t0 = tl - fl; let glow = 0;
   _bc.setRGB(PD.ec[i3], PD.ec[i3 + 1], PD.ec[i3 + 2]);
-  if (t < BT.BURST || t > tl + 1.05) { _bm.makeScale(0, 0, 0); pieces.setMatrixAt(i, _bm); pGlow.array[i] = 0; return; }
+  if (t < BT.BURST || t > tl + 1.45) { if (!PD.z[i]) { _bm.makeScale(0, 0, 0); pieces.setMatrixAt(i, _bm); pGlow.array[i] = 0; PD.z[i] = 1; } return; }
+  PD.z[i] = 0;
   const tumble = (tt) => { _be.set(PD.rx[i3] * tt, PD.rx[i3 + 1] * tt, PD.rx[i3 + 2] * tt); return _bq.setFromEuler(_be); };
   if (t < t0) {
-    freePos(i, t, _bv); tumble(t); const s = lerp(CELL, 0.32, bSm(0, 0.6, t - BT.BURST)); _bs.set(s, s, s);
+    freePos(i, t, _bv); tumble(t); const s = lerp(CELL, 0.17, bSm(0, 0.6, t - BT.BURST)); _bs.set(s, s, s);
     glow = 0.38 + 0.18 * Math.sin(t * 9 + PD.sp[i] * 3) + 1.4 * Math.max(0, 1 - (t - BT.BURST) / 0.3);
   } else {
     _pc.set(PD.tr[i3], PD.tr[i3 + 1], PD.tr[i3 + 2]); _bq2.set(PD.tq[i * 4], PD.tq[i * 4 + 1], PD.tq[i * 4 + 2], PD.tq[i * 4 + 3]);
@@ -2068,11 +2069,11 @@ function pieceState(i, t) {
       const u = (t - t0) / fl, e = u * u * (1.6 - 0.6 * u);
       freePos(i, t0, _pa); _pb.addVectors(_pa, _pc).multiplyScalar(0.5); _pb.y = Math.max(_pa.y, _pc.y) + 3 + _pa.distanceTo(_pc) * 0.1;
       const q = 1 - e; _bv.set(q * q * _pa.x + 2 * q * e * _pb.x + e * e * _pc.x, q * q * _pa.y + 2 * q * e * _pb.y + e * e * _pc.y, q * q * _pa.z + 2 * q * e * _pb.z + e * e * _pc.z);
-      tumble(t); _bq.slerp(_bq2, bSm(0.3, 1, u)); const s = lerp(0.32, PD.ts[i], e); _bs.set(s, s, s);
+      tumble(t); _bq.slerp(_bq2, bSm(0.3, 1, u)); const s = lerp(0.17, PD.ts[i], e); _bs.set(s, s, s);
       glow = 0.45 + u * 0.4; _bc.lerp(_bw.set(PD.tc[i3], PD.tc[i3 + 1], PD.tc[i3 + 2]), bSm(0.5, 1, u) * 0.5);
     } else {
       const d = t - tl; _bv.copy(_pc); _bq.copy(_bq2);
-      const pop = 1 + 0.35 * Math.max(0, 1 - d / 0.14), gone = 1 - bSm(0.55, 1.0, d), s = PD.ts[i] * pop * gone; _bs.set(s, s, s);
+      const pop = 1 + 0.35 * Math.max(0, 1 - d / 0.14), gone = 1 - bSm(0.9, 1.4, d), s = PD.ts[i] * pop * gone; _bs.set(s, s, s);
       _bc.setRGB(PD.tc[i3], PD.tc[i3 + 1], PD.tc[i3 + 2]); glow = 1.3 * Math.exp(-d * 8);
     }
   }
@@ -2146,17 +2147,18 @@ function updateBuild(dt, rdt, wall) {
   }
   if (crossBack(BT.BURST)) { _bv.set(S.x, 3.2, S.z); flashGround(_bv, _bc.copy(P.a).multiplyScalar(0.8), 2.4); postFlash = Math.max(postFlash, 0.3); trauma = Math.min(1.25, trauma + 0.3); SFX.thud(1); }
   // pieces
-  const piecesOn = busy && t >= BT.BURST && t < BT.FIN + 1.2;
+  const piecesOn = busy && t >= BT.BURST && t < BT.FIN + 1.6;
+  if (!piecesOn && pieces.visible) PD.z.fill(0);
   pieces.visible = piecesOn;
   if (piecesOn) {
     for (let i = 0; i < NP; i++) pieceState(i, t);
     pieces.instanceMatrix.needsUpdate = true; pieces.instanceColor.needsUpdate = true; pGlow.needsUpdate = true;
     if (fwd) {
       let n = 0, landed = 0;
-      for (let i = 0; i < NP; i++) { const tl = PD.tl[i]; if (pt < tl && t >= tl) { landed++; if (n < 30 * Q && Math.random() < 0.25) { n++;
+      for (let i = 0; i < NP; i++) { const tl = PD.tl[i]; if (pt < tl && t >= tl) { landed++; if (n < 30 * Q && Math.random() < 0.08) { n++;
         _bv.set(PD.tr[i * 3], PD.tr[i * 3 + 1], PD.tr[i * 3 + 2]); randUnit(_bw).multiplyScalar(rand(1.5, 4)); _bw.y = Math.abs(_bw.y) + 1;
         sparks.emit(_bv, _bw, rand(0.15, 0.35), _bc.setRGB(PD.tc[i * 3], PD.tc[i * 3 + 1], PD.tc[i * 3 + 2]).lerp(WHITE, 0.5).multiplyScalar(1.6), 0.02); } } }
-      BLD.tickAcc += landed; if (BLD.tickAcc > 10 && rdt > 0) { SFX.tick(Math.min(1, BLD.tickAcc / 40)); BLD.tickAcc = 0; }
+      BLD.tickAcc += landed; if (BLD.tickAcc > 40 && rdt > 0) { SFX.tick(Math.min(1, BLD.tickAcc / 160)); BLD.tickAcc = 0; }
       if (t > BT.BURST && t < BT.FIN - 1) { BLD.fx += dt * 120 * Q;
         while (BLD.fx >= 1) { BLD.fx--; const a = rand(0, 6.283), r = rand(3, 34), h = rand(0.3, 22); _bv.set(S.x + Math.cos(a) * r, h, S.z + Math.sin(a) * r);
           _bw.set(-Math.sin(a) * rand(6, 12), rand(0.5, 2.5), Math.cos(a) * rand(6, 12)); glow.emit(_bv, _bw, rand(0.4, 0.9), rand(0.08, 0.18), 0, P.a, _bc.setRGB(1, 0.85, 0.5), 0.8, 0.8, 0, F_FLICKER); } }
