@@ -1,0 +1,254 @@
+<title>Evolve Your World Characters</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Rubik:wght@400;500;700&display=swap">
+<style>
+/* Layout: one big 3D stage like a Roblox showcase, character chips above it, stats card below. Single dark "night arcade" look on purpose. */
+:root {
+  --bg: #0d0b1a; --panel: #17142b; --line: #2c2650; --fg: #f3f0ff; --muted: #a9a2cc;
+  --gold: #ffd34d; --green: #6dff8f; --red: #ff3b4e;
+  --display: "Fredoka", "Rubik", system-ui, sans-serif; --body: "Rubik", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 14px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 5vw, 34px); margin: 0; letter-spacing: .5px; text-wrap: balance; }
+h1 span { color: var(--gold); }
+.sub { color: var(--muted); font-size: 14px; margin: 0; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.chip { flex: 0 0 auto; border: 2px solid var(--line); background: var(--panel); color: var(--fg); font: 500 14px var(--body); padding: 8px 12px; border-radius: 999px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.chip[aria-pressed="true"] { border-color: var(--gold); background: #2a2148; }
+.chip:focus-visible, .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.stage { position: relative; border-radius: 22px; overflow: hidden; border: 2px solid var(--line); background: radial-gradient(ellipse at 50% 30%, #2a2156 0%, #110e22 70%); aspect-ratio: 4 / 3.4; max-width: 100%; touch-action: none; }
+canvas { width: 100%; height: 100%; display: block; }
+.tag { position: absolute; inset: 14px 14px auto 14px; display: grid; justify-items: center; text-align: center; pointer-events: none; }
+.tag b { font-family: var(--display); font-size: clamp(20px, 4.6vw, 30px); text-shadow: 0 2px 0 #000, 0 0 12px #000; }
+.tag em { font-style: normal; font-family: var(--display); font-weight: 700; font-size: 16px; text-shadow: 0 2px 0 #000; }
+.tag .p { color: var(--gold); font-family: var(--display); font-size: 17px; text-shadow: 0 2px 0 #000; }
+.tag .inc { color: var(--green); font-family: var(--display); font-size: 15px; text-shadow: 0 2px 0 #000; }
+.ctrls { position: absolute; bottom: 12px; inset-inline: 12px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 12px; padding: 9px 14px; font: 700 14px var(--body); background: #ffffff1c; color: var(--fg); cursor: pointer; backdrop-filter: blur(6px); }
+.btn[aria-pressed="true"] { background: var(--gold); color: #241a00; }
+.card { background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stat { display: grid; gap: 2px; }
+.stat span { color: var(--muted); font-size: 12px; letter-spacing: .4px; }
+.stat strong { font-family: var(--display); font-size: 20px; font-variant-numeric: tabular-nums; }
+.row { display: grid; gap: 4px; }
+.row span { color: var(--muted); font-size: 12px; letter-spacing: .4px; }
+.row p { margin: 0; line-height: 1.55; max-width: 65ch; }
+.note { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+@media (prefers-reduced-motion: reduce) { .chip, .btn { transition: none; } }
+</style>
+
+<div class="wrap" dir="rtl">
+  <header>
+    <h1>EVOLVE <span>YOUR WORLD</span></h1>
+    <p class="sub">12 הדמויות, בנויות מאותו קוד שנכנס לרובלוקס</p>
+  </header>
+  <div class="chips" id="chips" role="toolbar" aria-label="בחירת דמות"></div>
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="תצוגת דמות בתלת־ממד"></canvas>
+    <div class="tag" dir="ltr"><b id="tName"></b><em id="tRar"></em><span class="p" id="tPrice"></span><span class="inc" id="tInc"></span></div>
+    <div class="ctrls">
+      <button class="btn" id="bWalk" aria-pressed="true">הולך</button>
+      <button class="btn" id="bSpin" aria-pressed="true">מסתובב</button>
+      <button class="btn" id="bFront">מקדימה</button>
+    </div>
+  </div>
+  <section class="card" aria-live="polite">
+    <div class="stats">
+      <div class="stat"><span>נדירות</span><strong id="sRar"></strong></div>
+      <div class="stat"><span>מחיר</span><strong id="sPrice" dir="ltr"></strong></div>
+      <div class="stat"><span>רווח לשנייה</span><strong id="sInc" dir="ltr"></strong></div>
+      <div class="stat"><span>סיכוי לצאת</span><strong id="sChance" dir="ltr"></strong></div>
+    </div>
+    <div class="row"><span>איך הוא הולך</span><p id="sWalk"></p></div>
+    <div class="row"><span>מה קורה בכדור</span><p id="sSphere"></p></div>
+  </section>
+  <p class="note">גוררים על התמונה כדי לסובב. בתצוגה הזאת אין אפקטים של חלקיקים (נצנצים, עשן, פתיתי שלג). הם נראים רק בתוך רובלוקס.</p>
+</div>
+
+<script>
+const CHARS = /*__CHARS__*/null;
+const INFO = /*__INFO__*/null;
+
+// ---------- math ----------
+const M = {
+  id() { const m = new Float32Array(16); m[0]=m[5]=m[10]=m[15]=1; return m; },
+  mul(a, b) { const o = new Float32Array(16); for (let c=0;c<4;c++) for (let r=0;r<4;r++) { let s=0; for (let k=0;k<4;k++) s += a[k*4+r]*b[c*4+k]; o[c*4+r]=s; } return o; },
+  t(x,y,z) { const m = M.id(); m[12]=x; m[13]=y; m[14]=z; return m; },
+  s(x,y,z) { const m = M.id(); m[0]=x; m[5]=y; m[10]=z; return m; },
+  rx(a) { const m=M.id(), c=Math.cos(a), s=Math.sin(a); m[5]=c; m[6]=s; m[9]=-s; m[10]=c; return m; },
+  ry(a) { const m=M.id(), c=Math.cos(a), s=Math.sin(a); m[0]=c; m[2]=-s; m[8]=s; m[10]=c; return m; },
+  rz(a) { const m=M.id(), c=Math.cos(a), s=Math.sin(a); m[0]=c; m[1]=s; m[4]=-s; m[5]=c; return m; },
+  A(x,y,z) { return M.mul(M.mul(M.rx(x), M.ry(y)), M.rz(z)); },
+  cf(r, p) { const m = M.id(); m[0]=r[0]; m[1]=r[3]; m[2]=r[6]; m[4]=r[1]; m[5]=r[4]; m[6]=r[7]; m[8]=r[2]; m[9]=r[5]; m[10]=r[8]; m[12]=p[0]; m[13]=p[1]; m[14]=p[2]; return m; },
+  persp(f, a, n, fa) { const m = new Float32Array(16), t = 1/Math.tan(f/2); m[0]=t/a; m[5]=t; m[10]=(fa+n)/(n-fa); m[11]=-1; m[14]=2*fa*n/(n-fa); return m; },
+  look(e, c) { const z=[e[0]-c[0],e[1]-c[1],e[2]-c[2]], zl=Math.hypot(...z); z.forEach((v,i)=>z[i]=v/zl);
+    const x=[z[2],0,-z[0]], xl=Math.hypot(...x)||1; x.forEach((v,i)=>x[i]=v/xl);
+    const y=[z[1]*x[2]-z[2]*x[1], z[2]*x[0]-z[0]*x[2], z[0]*x[1]-z[1]*x[0]];
+    const m=M.id(); m[0]=x[0]; m[4]=x[1]; m[8]=x[2]; m[1]=y[0]; m[5]=y[1]; m[9]=y[2]; m[2]=z[0]; m[6]=z[1]; m[10]=z[2];
+    m[12]=-(x[0]*e[0]+x[1]*e[1]+x[2]*e[2]); m[13]=-(y[0]*e[0]+y[1]*e[1]+y[2]*e[2]); m[14]=-(z[0]*e[0]+z[1]*e[1]+z[2]*e[2]); return m; },
+};
+
+// ---------- gl ----------
+const cv = document.getElementById("c");
+const gl = cv.getContext("webgl", { antialias: true, alpha: true });
+const vs = `attribute vec3 p; attribute vec3 n; uniform mat4 mdl, vp; varying vec3 vn; varying vec3 vw;
+void main(){ vec4 w = mdl*vec4(p,1.0); vw = w.xyz; vn = normalize(mat3(mdl[0].xyz, mdl[1].xyz, mdl[2].xyz)*n); gl_Position = vp*w; }`;
+const fs = `precision mediump float; varying vec3 vn; varying vec3 vw; uniform vec3 col; uniform float alpha, neon, spec; uniform vec3 eye;
+void main(){ vec3 n = normalize(vn); if(!gl_FrontFacing) n = -n;
+ vec3 L = normalize(vec3(0.5,0.9,-0.6)); vec3 L2 = normalize(vec3(-0.7,0.3,0.8));
+ float d = max(dot(n,L),0.0), d2 = max(dot(n,L2),0.0)*0.35; float hemi = 0.34 + 0.16*n.y;
+ vec3 V = normalize(eye - vw); vec3 H = normalize(L+V); float s = pow(max(dot(n,H),0.0), 40.0)*spec;
+ float rim = pow(1.0-max(dot(n,V),0.0),3.0)*0.25;
+ vec3 c = col*(hemi + d*0.7 + d2) + vec3(s) + rim*vec3(0.6,0.55,1.0);
+ if (neon > 0.5) c = col*1.25 + vec3(0.12) + rim;
+ gl_FragColor = vec4(c, alpha); }`;
+function sh(t, s) { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; }
+const prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(prog); gl.useProgram(prog);
+const U = {}; ["mdl","vp","col","alpha","neon","spec","eye"].forEach(k => U[k] = gl.getUniformLocation(prog, k));
+const aP = gl.getAttribLocation(prog, "p"), aN = gl.getAttribLocation(prog, "n");
+
+function mesh(pos, nor, idx) {
+  const b1 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b1); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
+  const b2 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b2); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(nor), gl.STATIC_DRAW);
+  const b3 = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b3); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+  return { b1, b2, b3, n: idx.length };
+}
+function sphere() { const P=[],N=[],I=[], S=20, R=14;
+  for (let i=0;i<=R;i++){ const v=i/R*Math.PI; for (let j=0;j<=S;j++){ const u=j/S*2*Math.PI; const x=Math.sin(v)*Math.cos(u), y=Math.cos(v), z=Math.sin(v)*Math.sin(u); P.push(x/2,y/2,z/2); N.push(x,y,z);} }
+  for (let i=0;i<R;i++) for (let j=0;j<S;j++){ const a=i*(S+1)+j, b=a+S+1; I.push(a,b,a+1,b,b+1,a+1); } return mesh(P,N,I); }
+function box() { const P=[],N=[],I=[]; const f=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  f.forEach((n,k)=>{ const u = n[1]!==0?[1,0,0]:[0,1,0]; const v=[n[1]*u[2]-n[2]*u[1], n[2]*u[0]-n[0]*u[2], n[0]*u[1]-n[1]*u[0]];
+    for (const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]) { P.push((n[0]+u[0]*a+v[0]*b)/2,(n[1]+u[1]*a+v[1]*b)/2,(n[2]+u[2]*a+v[2]*b)/2); N.push(...n); }
+    const o=k*4; I.push(o,o+1,o+2,o,o+2,o+3); }); return mesh(P,N,I); }
+function cylX() { const P=[],N=[],I=[], S=22;
+  for (let j=0;j<=S;j++){ const u=j/S*2*Math.PI, y=Math.cos(u), z=Math.sin(u); P.push(-.5,y/2,z/2, .5,y/2,z/2); N.push(0,y,z,0,y,z); }
+  for (let j=0;j<S;j++){ const a=j*2; I.push(a,a+1,a+2,a+1,a+3,a+2); }
+  for (const sx of [-.5,.5]) { const c=P.length/3; P.push(sx,0,0); N.push(Math.sign(sx),0,0);
+    for (let j=0;j<=S;j++){ const u=j/S*2*Math.PI; P.push(sx,Math.cos(u)/2,Math.sin(u)/2); N.push(Math.sign(sx),0,0); }
+    for (let j=0;j<S;j++) I.push(c, c+1+j, c+2+j); }
+  return mesh(P,N,I); }
+const MESH = { Ell: sphere(), Ball: sphere(), Block: box(), Wedge: box(), Cylinder: cylX() };
+
+// ---------- gait (same as Gait.luau) ----------
+const STRIDE = { cute:1.15, strut:.95, bully:.9, skip:.7, tiny:2, quad:.75, dragon:.6, phone:1, limp:.9, potion:1 };
+const A = M.A, sin = Math.sin, cos = Math.cos, abs = Math.abs;
+const st = { phase: 0, amount: 0 };
+function gait(g, dt, speed, t) {
+  const T = {}; const set = (n, m) => T[n] = m;
+  st.amount += (Math.min(speed/8,1) - st.amount) * Math.min(dt*8,1); const a = st.amount;
+  st.phase += dt*speed*(STRIDE[g]||1); const ph = st.phase, tt = t, breathe = sin(tt*2)*.03;
+  set("Halo", A(0,tt*1.5,0)); set("Flies", M.mul(A(0,tt*5,0), A(sin(tt*3)*.1,0,0))); set("Flame", A(sin(tt*9)*.06,0,cos(tt*7)*.06));
+  set("Cape", A(-(.12+.35*a+sin(tt*7)*.08*(.3+a)),0,sin(tt*3)*.04)); set("Mane", A(sin(tt*2.1)*.04,0,sin(tt*1.7)*.06*(.5+a)));
+  set("Tail", A(sin(tt*2.5)*.15, sin(tt*3+ph)*(.25+.2*a), 0));
+  if (g === "quad" || g === "dragon") { const sw = sin(ph)*.55*a;
+    set("LegFL",A(sw,0,0)); set("LegBR",A(sw,0,0)); set("LegFR",A(-sw,0,0)); set("LegBL",A(-sw,0,0));
+    set("Body", M.mul(M.t(0,abs(sin(ph))*.12*a+breathe,0), A(sin(ph*2)*.02*a,0,sin(ph)*.03*a)));
+    set("Head", A(sin(ph*2)*.05*a+sin(tt*.9)*.04, sin(tt*.7)*.12, 0)); set("Neck", A(sin(tt*1.1)*.05,0,0));
+    if (g === "dragon") { const f = sin(tt*(2.2+a*2))*(.35+.25*a); set("WingL",A(0,0,f-.1)); set("WingR",A(0,0,-f+.1)); }
+    return T; }
+  const sw = sin(ph); let legAmp=.6, armAmp=.5, bounce=.15, body=M.id(), head=A(sin(tt*1.3)*.04, sin(tt*.8)*.08, sin(tt*1.1)*.03), armL=null, armR=null;
+  if (g==="cute"){ legAmp=.55; armAmp=.6; bounce=.3; head=M.mul(head,A(0,0,sin(ph)*.08*a)); }
+  else if (g==="strut"){ legAmp=.55; armAmp=.85; bounce=.12; body=A(-.08*a, sin(ph)*.12*a, sin(ph)*.06*a); head=M.mul(head,A(-.08*a,0,0)); }
+  else if (g==="bully"){ legAmp=.5; armAmp=.45; bounce=.1; body=A(0,sin(ph)*.18*a,sin(ph)*.14*a); armL=A(-sw*.45*a,0,-.35*a); armR=A(sw*.45*a,0,.35*a); }
+  else if (g==="skip"){ legAmp=.35; armAmp=.5; bounce=0; body=M.mul(M.t(0,abs(sin(ph))*.65*a,0),A(-.06*a,0,0)); armL=A(-.4*a-sw*.3*a,0,-.3*a); armR=A(-.4*a+sw*.3*a,0,.3*a); }
+  else if (g==="tiny"){ legAmp=.45; armAmp=.5; bounce=.22; body=A(0,0,sin(ph)*.1*a); }
+  else if (g==="phone"){ legAmp=.55; armAmp=.5; bounce=.1; armR=A(2.05,0,-.25); head=M.mul(head,A(-.3,0,0)); }
+  else if (g==="potion"){ legAmp=.5; armAmp=.35; bounce=.12; armR=A(.95+sin(tt*2)*.05,0,.15); armL=A(.25-sw*.15*a,0,0); }
+  else if (g==="limp"){ legAmp=0; bounce=0; set("LegL",A(sw*.55*a,0,0)); set("LegR",A(Math.max(0,-sw)*.18*a,0,.05*a));
+    body=M.mul(M.t(0,Math.max(0,sw)*.25*a,0),A(.06,sin(ph)*.1*a,.12*a+sin(ph)*.1*a)); armL=A(1.3+sin(tt*2.3)*.08,0,.05); armR=A(1.15+sin(tt*2+1)*.08,0,-.05); head=M.mul(head,A(0,0,.15+sin(tt*1.7)*.06)); }
+  if (legAmp>0){ set("LegL",A(sw*legAmp*a,0,0)); set("LegR",A(-sw*legAmp*a,0,0)); }
+  set("ArmL", armL||A(-sw*armAmp*a,0,-.05)); set("ArmR", armR||A(sw*armAmp*a,0,.05));
+  set("Body", M.mul(M.t(0,abs(sw)*bounce*a+breathe,0), body)); set("Head", head);
+  return T;
+}
+
+// ---------- character ----------
+let cur = null, ids = Object.keys(CHARS);
+function load(id) {
+  const c = CHARS[id]; const jp = { HumanoidRootPart: [0, c.hip, 0] }; const jpar = {};
+  c.joints.forEach(j => { jp[j.name] = j.p; jpar[j.name] = j.parent; });
+  let minY = 1e9, maxY = -1e9, maxR = 0;
+  const parts = c.parts.map(p => {
+    const q = jp[p.j] || [0,0,0];
+    let local = M.mul(M.t(-q[0],-q[1],-q[2]), M.cf(p.r, p.p));
+    local = M.mul(local, M.s(p.s === "Ball" ? p.sz[0] : p.sz[0], p.s === "Ball" ? p.sz[0] : p.sz[1], p.s === "Ball" ? p.sz[0] : p.sz[2]));
+    const top = p.p[1] + Math.max(...p.sz)/2, bot = p.p[1] - Math.max(...p.sz)/2;
+    if (p.t < 0.95) { minY = Math.min(minY, bot); maxY = Math.max(maxY, top); maxR = Math.max(maxR, Math.hypot(p.p[0], p.p[2]) + Math.max(...p.sz)/2); }
+    const neon = p.m === "Neon", glass = p.m === "Glass";
+    return { j: p.j, mesh: MESH[p.s] || MESH.Block, local, col: p.c, alpha: Math.min(1 - p.t, glass ? 0.82 : 1), neon: neon ? 1 : 0, spec: (p.m === "Metal" || glass || p.m === "DiamondPlate") ? 0.9 : 0.18 };
+  });
+  cur = { id, c, jp, jpar, parts, minY: Math.max(0, minY), maxY, maxR };
+  st.phase = 0;
+  const info = INFO[id];
+  document.getElementById("tName").textContent = info.name;
+  const tr = document.getElementById("tRar"); tr.textContent = info.rarity; tr.style.color = info.rc;
+  document.getElementById("tPrice").textContent = info.price;
+  document.getElementById("tInc").textContent = info.income + "/s";
+  document.getElementById("sRar").textContent = info.rarity; document.getElementById("sRar").style.color = info.rc;
+  document.getElementById("sPrice").textContent = info.price; document.getElementById("sInc").textContent = info.income;
+  document.getElementById("sChance").textContent = info.chance + "%";
+  document.getElementById("sWalk").textContent = info.walk; document.getElementById("sSphere").textContent = info.sphere;
+  document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id ? "true" : "false"));
+}
+const chips = document.getElementById("chips");
+ids.forEach(id => { const b = document.createElement("button"); b.className = "chip"; b.dataset.id = id; b.type = "button";
+  b.innerHTML = `<i style="background:${INFO[id].rc}"></i>`; b.append(INFO[id].name); b.onclick = () => load(id); chips.append(b); });
+
+// ---------- controls ----------
+let walking = true, spinning = true, yaw = 0.6, pitch = 0.18, drag = null;
+const bW = document.getElementById("bWalk"), bS = document.getElementById("bSpin");
+bW.onclick = () => { walking = !walking; bW.setAttribute("aria-pressed", walking); bW.textContent = walking ? "הולך" : "עומד"; };
+bS.onclick = () => { spinning = !spinning; bS.setAttribute("aria-pressed", spinning); };
+document.getElementById("bFront").onclick = () => { yaw = 0; pitch = 0.12; spinning = false; bS.setAttribute("aria-pressed", false); };
+cv.addEventListener("pointerdown", e => { drag = [e.clientX, e.clientY]; cv.setPointerCapture(e.pointerId); spinning = false; bS.setAttribute("aria-pressed", false); });
+cv.addEventListener("pointermove", e => { if (!drag) return; yaw -= (e.clientX - drag[0]) * 0.01; pitch = Math.max(-0.2, Math.min(1.1, pitch + (e.clientY - drag[1]) * 0.006)); drag = [e.clientX, e.clientY]; });
+cv.addEventListener("pointerup", () => drag = null);
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) { spinning = false; bS.setAttribute("aria-pressed", false); }
+
+// ---------- floor ----------
+const floorParts = [];
+(function () { const ring = (d, h, y, col, neon) => floorParts.push({ mesh: MESH.Cylinder, m: M.mul(M.mul(M.t(0, y, 0), M.rz(Math.PI/2)), M.s(h, d, d)), col, neon, alpha: 1, spec: .2 });
+  ring(9.5, .3, -.15, [.16,.13,.3], 0); ring(9.9, .2, -.2, [1,.83,.3], 1); })();
+
+// ---------- render ----------
+let last = performance.now(), T0 = last;
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now; const t = (now - T0) / 1000;
+  const w = cv.clientWidth * devicePixelRatio, h = cv.clientHeight * devicePixelRatio;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+  if (spinning) yaw += dt * 0.45;
+  const c = cur; const size = Math.max(c.maxY - c.minY, c.maxR * 1.25, 4);
+  const center = [0, c.minY + (c.maxY - c.minY) * 0.56, 0], dist = size * 2.35;
+  const eye = [Math.sin(yaw) * Math.cos(pitch) * -dist, center[1] + Math.sin(pitch) * dist, -Math.cos(yaw) * Math.cos(pitch) * dist];
+  const vp = M.mul(M.persp(0.62, w / h, 0.1, 200), M.look(eye, center));
+  gl.uniformMatrix4fv(U.vp, false, vp); gl.uniform3fv(U.eye, eye);
+  const T = gait(c.c.gait, dt, walking ? 9 : 0, t);
+  const world = { HumanoidRootPart: M.t(0, c.c.hip, 0) };
+  const get = n => { if (world[n]) return world[n]; const par = c.jpar[n] || "HumanoidRootPart"; const pp = c.jp[par], p = c.jp[n];
+    world[n] = M.mul(M.mul(get(par), M.t(p[0]-pp[0], p[1]-pp[1], p[2]-pp[2])), T[n] || M.id()); return world[n]; };
+  const draw = (mesh, m, col, alpha, neon, spec) => { gl.uniformMatrix4fv(U.mdl, false, m); gl.uniform3fv(U.col, col); gl.uniform1f(U.alpha, alpha); gl.uniform1f(U.neon, neon); gl.uniform1f(U.spec, spec);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.b1); gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.b2); gl.enableVertexAttribArray(aN); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.b3); gl.drawElements(gl.TRIANGLES, mesh.n, gl.UNSIGNED_SHORT, 0); };
+  gl.disable(gl.BLEND); gl.depthMask(true);
+  floorParts.forEach(f => draw(f.mesh, f.m, f.col, 1, f.neon, f.spec));
+  const trans = [];
+  for (const p of c.parts) { if (p.alpha <= 0.02) continue; const m = M.mul(get(p.j), p.local);
+    if (p.alpha < 0.99) trans.push([m, p]); else draw(p.mesh, m, p.col, 1, p.neon, p.spec); }
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+  trans.sort((a, b) => { const da = (a[0][12]-eye[0])**2 + (a[0][13]-eye[1])**2 + (a[0][14]-eye[2])**2, db = (b[0][12]-eye[0])**2 + (b[0][13]-eye[1])**2 + (b[0][14]-eye[2])**2; return db - da; });
+  trans.forEach(([m, p]) => draw(p.mesh, m, p.col, p.alpha, p.neon, p.spec));
+  gl.depthMask(true);
+  requestAnimationFrame(frame);
+}
+load(location.hash.slice(1) in CHARS ? location.hash.slice(1) : ids[0]);
+requestAnimationFrame(frame);
+</script>
